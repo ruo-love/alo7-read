@@ -221,7 +221,8 @@
 			} = V1(
 				ttsConfig.TextToStreamAudio, {
 					Text:message.value,
-					SessionId: message.id
+					SessionId: message.id,
+					VoiceType:1051
 				})
 			wx.request({
 				method: 'POST',
