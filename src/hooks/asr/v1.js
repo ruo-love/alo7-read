@@ -1,10 +1,5 @@
 import crypto from 'crypto-js';
 
-function get_req_url(params, endpoint) {
-	params['Signature'] = escape(params['Signature']);
-	const url_strParam = sort_params(params)
-	return "https://" + endpoint + "/?" + url_strParam.slice(1);
-}
 
 function formatSignString(reqMethod, endpoint, path, strParam) {
 	let strSign = reqMethod + endpoint + path + "?" + strParam.slice(1);

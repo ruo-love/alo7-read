@@ -7,7 +7,7 @@ export default {
 		SERVICE: "asr",
 		REGION: "ap-guangzhou",
 		VERSION: "2019-06-14",
-		ContentType: "application/json; charset=utf-8"
+		ContentType: "application/json"
 	},
 	CreateRecTask: {
 		SECRET_ID: "AKIDvkMk5JJcfT4RYQ3VN7dzrEaqtkRyIWYU",

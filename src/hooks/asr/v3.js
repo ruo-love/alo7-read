@@ -50,6 +50,7 @@ export default function V3(config, body) {
 	// const payload = "{\"TaskId\":6333894143}";
 	const payload = JSON.stringify(body);
 	const hashedRequestPayload = getHash(payload);
+	//仅支持Post
 	const httpRequestMethod = "POST"
 	const canonicalUri = "/"
 	const canonicalQueryString = ""
@@ -105,6 +106,7 @@ export default function V3(config, body) {
 		region,
 		action,
 		version,
-		host
+		host,
+		ContentType
 	}
 }

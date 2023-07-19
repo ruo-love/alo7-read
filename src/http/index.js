@@ -1,5 +1,5 @@
 const env=import.meta.env
-console.log(env)
+
 const request = function(method, url, data, options) {
 	return new Promise((resolve, reject) => {
 		uni.showLoading({
@@ -27,7 +27,6 @@ const request = function(method, url, data, options) {
 				reject(err)
 			},
 			...options,
-
 		})
 	})
 }
