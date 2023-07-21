@@ -2,7 +2,7 @@
   <view
     class="home-page"
     :style="{
-      'padding-top': isLogin ? systemStore.headerTop + 'px' : '0',
+      'padding-top': systemStore.headerTop + 'px',
     }"
   >
     <view v-if="isLogin" class="home-wrap">
@@ -15,7 +15,7 @@
         hide_right_icon
       >
         <template #title>
-          <view class="title ml-20">诸葛亮</view>
+          <view class="title ml-20">{{ userInfo.chineseName }}</view>
         </template>
       </a7-cell-card>
       <view class="card my-20 p-20">
@@ -78,7 +78,7 @@ import { generateUniqueUid } from "../../utils/tool";
 import useUserStore from "../../store/user.js";
 import useSystemStore from "../../store/system.js";
 import { navigateTo } from "../../utils/common.js";
-const { isLogin } = useUserStore();
+const { isLogin, userInfo } = useUserStore();
 
 const systemStore = useSystemStore();
 systemStore.getStatusbarHeight();
