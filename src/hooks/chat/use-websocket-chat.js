@@ -25,9 +25,11 @@ const env = import.meta.env;
  */
 export default function useWebsocketChat(
   uid,
+  uuid,
   first = true,
   timeoutCallback,
-  play
+  play,
+  level
 ) {
   const inputMessage = reactive({
     value: "",
@@ -53,8 +55,12 @@ export default function useWebsocketChat(
   //开始连接
   const token = uni.getStorageSync("accessToken");
   let SocketTask = wx.connectSocket({
-    url: `${env.VITE_api_chat_websocket}/websocket/${uid}?level=1`,
-    protocols: [token],
+    url: `${env.VITE_api_chat_websocket}/freeTalk/${uid}?uuid=${uuid}${
+      level ? "&level=" + level : ""
+    }`,
+    header: {
+      token,
+    },
   });
 
   // 监听连接成功

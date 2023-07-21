@@ -38,8 +38,8 @@ import { computed, reactive } from "vue";
 import { sleep } from "../../utils/tool.js";
 const userStore = useUserStore();
 const formData = reactive({
-  mobilePhone: "",
-  password: "",
+  mobilePhone: "15502127242",
+  password: "123456",
 });
 const disabled = computed(
   () => !(formData.mobilePhone.length === 11 && formData.password.length > 0)
@@ -60,7 +60,7 @@ async function toLogin() {
         icon: "none",
       });
       await sleep(800);
-      uni.switchTab({
+      uni.navigateTo({
         url: "/pages/home/index",
       });
     })

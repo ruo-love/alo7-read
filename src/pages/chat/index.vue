@@ -28,16 +28,7 @@
         <text class="span">松手结束录音</text>
       </view>
       <view class="message-wrap">
-        <image
-          @click="
-            () => {
-              isVoice = !isVoice;
-            }
-          "
-          class="icon-30 left-btn"
-          :src="left_btn_src"
-        ></image>
-        <view v-if="isVoice" class="voice-wrap right-wrap">
+        <view class="voice-wrap right-wrap">
           <view v-if="loadingMode.value" class="loading-input-wrap">
             <text style="color: #666">{{ loadingMode.text }}</text>
             <view class="spinner"></view>
@@ -59,22 +50,6 @@
             </image>
           </view>
         </view>
-        <view v-else class="input-message-wrap right-wrap">
-          <input
-            confirm-type="send"
-            @confirm="socketTarget.sendMessage(socketTarget.inputMessage.value)"
-            v-model="socketTarget.inputMessage.value"
-            class="message-input"
-          />
-
-          <button
-            class="send-btn"
-            v-if="socketTarget.hasMessage"
-            @click="socketTarget.sendMessage(socketTarget.inputMessage.value)"
-          >
-            发送
-          </button>
-        </view>
       </view>
     </view>
   </view>
@@ -89,6 +64,8 @@ import asrConfig from "../../hooks/asr/asr.js";
 import ttsConfig from "../../hooks/asr/tts.js";
 import { ref, reactive, computed, onBeforeUnmount } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
+import useUserStore from "../../store/user.js";
+const userStore = useUserStore();
 let uid = null;
 const socketTarget = ref({
   messageList: [],
@@ -101,7 +78,7 @@ const socketTarget = ref({
 });
 const fileMap = new Map();
 const { start, stop, recording } = useRecorder(onStartCallback, onStopCallBack);
-const isVoice = ref(false);
+const isVoice = ref(true);
 const second = ref(60);
 const playing = ref(false);
 const loadingMode = reactive({
@@ -125,7 +102,13 @@ onLoad((options) => {
 onShow(() => {
   //第一次进入页面 连接socket
   if (socketTarget.value.SocketTask.currentStatus == "init") {
-    socketTarget.value = useWebsocketChat(uid, true, timeoutCallback, play);
+    socketTarget.value = useWebsocketChat(
+      uid,
+      userStore.userInfo.uuid,
+      false,
+      timeoutCallback,
+      play
+    );
   }
   // 退至后台socket被中断，再次进入页面重新连接
   if (socketTarget.value.SocketTask.currentStatus === "interrupted") {
@@ -148,7 +131,13 @@ audioContext.onEnded(() => {
  */
 function timeoutCallback() {
   const oldMessageList = socketTarget.value.messageList;
-  socketTarget.value = useWebsocketChat(uid, false, timeoutCallback, play);
+  socketTarget.value = useWebsocketChat(
+    uid,
+    userStore.userInfo.uuid,
+    false,
+    timeoutCallback,
+    play
+  );
   // 同步之前的会话内容
   socketTarget.value.messageList = oldMessageList;
 }
