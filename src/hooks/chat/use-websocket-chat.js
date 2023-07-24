@@ -1,14 +1,20 @@
 import { ref, reactive, computed, nextTick } from "vue";
-import { debounce, getTimestampOfNDaysAgo } from "../../utils/tool.js";
+import {
+  debounce,
+  getTimestampOfNDaysAgo,
+  throttle,
+} from "../../utils/tool.js";
 import { generateUniqueUid } from "../../utils/tool.js";
 const env = import.meta.env;
 
 /**
  *
  * @param {*} uid socket 连接必须携带一个uid
+ * @param {*} uuid 登陆后返回的uuid
  * @param {boolean} first 是否为第一次连接
  * @param {function} timeoutCallback 连接超时中断回调
  * @param {function} play pgt回复之后，需要将其内容语音播放
+ * @param {number} level 模式等级
  * @returns {
  * }
  * sendMessage,发送消息函数
@@ -23,31 +29,33 @@ const env = import.meta.env;
  * hasMessage，当前输入框是否有值
  *
  */
-export default function useWebsocketChat(
+export default function useWebsocketChat({
+  messageList,
   uid,
   uuid,
-  first = true,
+  first,
   timeoutCallback,
   play,
-  level
-) {
+  level,
+}) {
+  //消息对象数据结构
   const inputMessage = reactive({
     value: "",
     self: true,
     id: "",
+    duration: 0,
   });
   // 只缓存近N天的聊天记录
-  const minTime = getTimestampOfNDaysAgo();
-  const cacheMessageList = (wx.getStorageSync("messageList") || []).filter(
-    (e) => e.createTime >= minTime
-  );
-  const messageList = ref(cacheMessageList);
+  // const minTime = getTimestampOfNDaysAgo();
+  // const cacheMessageList = (wx.getStorageSync("messageList") || []).filter(
+  //   (e) => e.createTime >= minTime
+  // );
+  // const messageList = ref(messageList);
   const loading = ref(false);
   const scrollTop = ref(0);
-  let msg = "";
-  let init = first;
-  let index = messageList.value.length;
   let oldScrollTop = 0;
+
+  let index = messageList.value.length;
   const hasMessage = computed(() => {
     return inputMessage.value.trim().length > 0;
   });
@@ -67,33 +75,19 @@ export default function useWebsocketChat(
   SocketTask.onOpen((e) => {
     SocketTask.currentStatus = "open";
     console.log("😄您已成功接入ALO7_GPT websocket服务,开始解决你的问题", e);
-    scrollBottom();
-    if (!init) return false;
-    msg = "";
-    SocketTask.send({
-      data: msg,
-      success: () => {
-        messageList.value[index] = {
-          value: msg,
-          self: false,
-          createTime: Date.now(),
-          id: generateUniqueUid(),
-        };
-        scrollBottom();
-      },
-    });
+    if (first) {
+      scrollBottom();
+    }
   });
 
   //监听消息接收
-  SocketTask.onMessage((event) => {
+  SocketTask.onMessage(async (event) => {
+    console.log("😄message", event);
     try {
       const content = JSON.parse(event.data).content;
       if (!!content) {
-        if (init) {
-          messageList.value[index].value += content;
-        } else {
-          messageList.value[index + 1].value += content;
-        }
+        messageList.value[index + 1].value += content;
+        scrollBottomThrottle();
       }
     } catch (err) {
       switch (event.data) {
@@ -104,14 +98,9 @@ export default function useWebsocketChat(
           loading.value = false;
           break;
         case "[DONE]":
-          saveMessageListData(messageList.value);
-          if (init) {
-            play(messageList.value[index]);
-          } else {
-            play(messageList.value[index + 1]);
-          }
-          scrollBottom();
-          init = false;
+          saveMessageListData();
+          play(messageList.value[index + 1]);
+          scrollBottomThrottle();
           break;
         default:
           console.log("😄message error", err);
@@ -127,7 +116,7 @@ export default function useWebsocketChat(
     loading.value = false;
     if (err.code == 1006) {
       SocketTask.currentStatus = "timeout";
-      timeoutCallback(err);
+      timeoutCallback();
     } else if (err.reason === "interrupted") {
       SocketTask.currentStatus = "interrupted";
     } else {
@@ -150,14 +139,16 @@ export default function useWebsocketChat(
 
   //发送消息
   const sendMessage = debounce(async (content) => {
+    console.log("sendMessage", SocketTask, content);
     if (SocketTask.currentStatus !== "open") return;
-    msg = content;
+
     if (!hasMessage.value) return;
     loading.value = true;
     index = messageList.value.length;
     SocketTask.send({
-      data: msg,
+      data: content,
       success: (e) => {
+        console.log("sendMessage success", e);
         messageList.value[index] = {
           value: inputMessage.value,
           self: true,
@@ -200,11 +191,12 @@ export default function useWebsocketChat(
       })
       .exec();
   }
-
+  const scrollBottomThrottle = throttle(scrollBottom, 500);
   //缓存聊天数据
-  function saveMessageListData(messageList) {
+  function saveMessageListData() {
     try {
-      wx.setStorageSync("messageList", messageList);
+      console.log("messageList", messageList.value);
+      wx.setStorageSync("messageList", messageList.value);
     } catch (err) {
       console.log("saveMessageListData error", err);
     }
@@ -212,9 +204,8 @@ export default function useWebsocketChat(
   return {
     sendMessage,
     inputMessage,
-    messageList,
     loading,
-
+    saveMessageListData,
     close,
     scroll,
     scrollTop,

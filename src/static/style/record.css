@@ -24,7 +24,7 @@
 	height: 38px;
 	border-radius: 8px;
 	text-align: center;
-	background: #0092ff;
+	background: #79bff5;
 }
 
 .record-btn-layer button image {
@@ -41,7 +41,7 @@
 /* 提示小弹窗 */
 .prompt-layer {
 	border-radius: 8px;
-	background: #0092ff;
+	background: #79bff5;
 	padding: 8px 16px;
 	box-sizing: border-box;
 	position: absolute;
@@ -52,8 +52,8 @@
 .prompt-layer::after {
 	content: '';
 	display: block;
-	border: 6px solid rgba(0, 0, 0, 0);
-	border-top-color: rgba(0, 146, 255, 1);
+	border: 6px solid rgba(200, 198, 198, 0);
+	border-top-color: rgb(121, 191, 245);
 	position: absolute;
 	bottom: -10px;
 	left: 50%;
@@ -76,7 +76,7 @@
 }
 
 .prompt-layer-1 .span {
-	color:  #fff;
+	color: #fff;
 }
 
 .prompt-loader .em {}
@@ -93,7 +93,7 @@
 
 .prompt-loader .em {
 	display: block;
-	background: #fff;
+	background: #ffffff;
 	width: 1px;
 	height: 10%;
 	margin-right: 2.5px;

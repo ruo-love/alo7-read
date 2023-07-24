@@ -5,38 +5,38 @@
     :class="self ? 'self' : 'robot'"
   >
     <view class="message-wrap">
-      <!-- v-if="self" -->
+      <view v-if="!self" class="control-wrap">
+        <view class="play-btn">
+          <image
+            v-if="recordLoading"
+            src="../../static/images/recordloading.gif"
+            class="icon-20 round"
+          ></image>
+          <image
+            @click="$emit('play', content)"
+            v-else-if="!self && !recordLoading"
+            class="icon-20 round"
+            :src="
+              playing
+                ? '../../static/images/btn_playsource_playing.gif'
+                : '../../static/images/btn_playsource@3x.png'
+            "
+          ></image>
+          <text v-if="duration" class="duration">{{ duration }}</text>
+        </view>
+        <image
+          class="translate icon-30"
+          src="../../static/images/fanyi.png"
+        ></image>
+      </view>
       <view class="content">
         {{ content }}
       </view>
-      <!-- <rich-text v-else :nodes="mdi.render(content)"></rich-text> -->
-      <view style="display: flex; justify-content: flex-end; margin-top: 10px">
-        <image
-          v-if="recordLoading"
-          src="../../static/images/recordloading.gif"
-          class="icon-20"
-        ></image>
-        <image
-          @click="$emit('play', content)"
-          v-else-if="!self && !recordLoading"
-          class="icon-20"
-          :src="
-            playing
-              ? '../../static/images/btn_playsource_playing.gif'
-              : '../../static/images/btn_playsource@3x.png'
-          "
-        ></image>
-      </view>
     </view>
-    <view :class="self ? 'self_time' : 'robot_time'">{{ time }}</view>
   </view>
 </template>
 
 <script>
-// import {
-// 	mdRender
-// } from '../../utils/tool.js'
-
 export default {
   emits: ["play"],
   props: {
@@ -60,12 +60,12 @@ export default {
       type: Number,
       default: false,
     },
+    duration: {
+      type: Number,
+      default: 0,
+    },
   },
-  data() {
-    return {
-      // mdi: mdRender()
-    };
-  },
+
   computed: {
     time() {
       const date = new Date(this.createTime);
@@ -81,32 +81,56 @@ export default {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .a7-message-card {
   margin-bottom: 20px;
   display: flex;
   flex-direction: column;
-}
-.robot {
-  display: flex;
+  &.self {
+    align-items: flex-end;
+  }
 }
 
+.message-wrap {
+  max-width: 75% !important;
+}
 .robot .message-wrap {
   display: inline-block;
   margin-top: 16px;
   padding: 30rpx;
   padding-bottom: 10rpx;
   font-size: 16px;
-  color: #282c35;
-  background-color: #fff;
+  color: #fff;
+  background-color: #0092ff;
   border-radius: 8px;
-  box-shadow: 0px 0px -10px #ccc;
+  box-shadow: none;
 }
-
 .self .message-wrap {
   display: flex;
   justify-content: flex-end;
   background-color: unset;
+  box-shadow: none;
+}
+.control-wrap {
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  .play-btn {
+    display: flex;
+    align-items: center;
+    padding: 0px 4px;
+    height: 30px;
+    background-color: #79bff5;
+    border-radius: 10px;
+    .duration {
+      margin-left: 6px;
+      color: #fff;
+      font-size: 12px;
+    }
+  }
+  .translate {
+  }
 }
 
 .self .message-wrap .content {
@@ -114,9 +138,8 @@ export default {
   padding: 30rpx;
   font-size: 16px;
   color: #fff;
-  background-color: #0092ff;
+  background-color: rgba($color: #378fff, $alpha: 0.8);
   border-radius: 8px;
-  box-shadow: 0px 0px -10px #ccc;
 }
 
 .content {
@@ -128,29 +151,5 @@ export default {
   width: 20px;
   height: 20px;
   vertical-align: middle;
-}
-
-.ani-play {
-  animation: speaker-animation 1s infinite;
-}
-
-@keyframes speaker-animation {
-  0%,
-  100% {
-    transform: scale(0.8);
-  }
-
-  50% {
-    transform: scale(0.7);
-  }
-}
-.robot_time,
-.self_time {
-  padding: 6px;
-  font-size: 12px;
-  color: #ccc;
-}
-.self_time {
-  text-align: right;
 }
 </style>

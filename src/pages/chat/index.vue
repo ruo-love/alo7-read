@@ -3,7 +3,7 @@
     <scroll-view
       scroll-y="true"
       @scroll="socketTarget.scroll"
-      class="scroll-Y"
+      class="scroll-Y scroll-view-wrap"
       :scroll-top="socketTarget.scrollTop"
     >
       <view id="viewCommunicationBody">
@@ -11,11 +11,12 @@
           :recordLoading="currentPlayId === message.id && recordLoading"
           :playing="currentPlayId === message.id && playing"
           @play="play(message)"
-          v-for="message in socketTarget.messageList"
+          v-for="message in messageList"
           :key="message.id"
           :self="message.self"
           :content="message.value"
           :createTime="message.createTime"
+          :duration="message.duration"
         />
       </view>
     </scroll-view>
@@ -28,27 +29,15 @@
         <text class="span">松手结束录音</text>
       </view>
       <view class="message-wrap">
-        <view class="voice-wrap right-wrap">
-          <view v-if="loadingMode.value" class="loading-input-wrap">
-            <text style="color: #666">{{ loadingMode.text }}</text>
-            <view class="spinner"></view>
-          </view>
-          <view
-            v-else
-            class="voice-btn flex-center"
-            :class="{ recording: recording }"
-            @touchstart="start"
-            @touchend="stop"
-            @touchcancel="stop"
-          >
-            <text>{{ recording ? "录音中..." : "长按开始语音转译" }}</text>
-            <image
-              style="margin-left: 10px"
-              class="icon-30"
-              src="https://web-alo7-com.oss-cn-beijing.aliyuncs.com/wx-teacher-app/alo7-read/mk.png"
-            >
-            </image>
-          </view>
+        <view
+          class="voice-wrap right-wrap flex-center"
+          :class="{ recording: recording }"
+          @touchstart="start"
+          @touchend="stop"
+          @touchcancel="stop"
+        >
+          <image class="icon-72 icon-voice" src="../../static/images/mk.png">
+          </image>
         </view>
       </view>
     </view>
@@ -65,62 +54,60 @@ import ttsConfig from "../../hooks/asr/tts.js";
 import { ref, reactive, computed, onBeforeUnmount } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import useUserStore from "../../store/user.js";
+import { getTimestampOfNDaysAgo } from "../../utils/tool.js";
 const userStore = useUserStore();
 let uid = null;
-const socketTarget = ref({
-  messageList: [],
-  inputMessage: {
-    value: "",
-  },
-  SocketTask: {
-    currentStatus: "init",
-  },
-});
+const socketTarget = ref({});
 const fileMap = new Map();
 const { start, stop, recording } = useRecorder(onStartCallback, onStopCallBack);
 const isVoice = ref(true);
 const second = ref(60);
 const playing = ref(false);
-const loadingMode = reactive({
-  value: false,
-  text: "解析中，请耐心等待",
-});
 const recordLoading = ref(false);
+const messageList = ref([]);
 const left_btn_src = computed(() => {
   return isVoice.value
     ? "https://web-alo7-com.oss-cn-beijing.aliyuncs.com/wx-teacher-app/alo7-read/jp.png"
     : "https://web-alo7-com.oss-cn-beijing.aliyuncs.com/wx-teacher-app/alo7-read/voice.png";
 });
-let timer = null;
 let currentPlayId = ref(null);
+let timer = null;
 const fs = wx.getFileSystemManager();
 const audioContext = wx.createInnerAudioContext();
+audioContext.autoplay = false;
 onLoad((options) => {
   uid = options.uid;
+  const minTime = getTimestampOfNDaysAgo();
+  messageList.value = (wx.getStorageSync("messageList") || []).filter(
+    (e) => e.createTime >= minTime
+  );
 });
 
 onShow(() => {
-  //第一次进入页面 连接socket
-  if (socketTarget.value.SocketTask.currentStatus == "init") {
-    socketTarget.value = useWebsocketChat(
-      uid,
-      userStore.userInfo.uuid,
-      false,
-      timeoutCallback,
-      play
-    );
-  }
   // 退至后台socket被中断，再次进入页面重新连接
-  if (socketTarget.value.SocketTask.currentStatus === "interrupted") {
+  if (
+    socketTarget.value.SocketTask &&
+    socketTarget.value.SocketTask.currentStatus === "interrupted"
+  ) {
     timeoutCallback();
+  } else {
+    //第一次进入页面 连接socket
+    socketTarget.value = useWebsocketChat({
+      messageList,
+      uid,
+      uuid: userStore.userInfo.uuid,
+      first: true,
+      timeoutCallback,
+      play,
+    });
   }
 });
 
-audioContext.onPlay(() => {
+audioContext.onPlay((e) => {
   recordLoading.value = false;
   playing.value = true;
 });
-audioContext.onEnded(() => {
+audioContext.onEnded((e) => {
   playing.value = false;
   currentPlayId.value = null;
 });
@@ -130,16 +117,17 @@ audioContext.onEnded(() => {
  * timeoutCallback用于重新连接socket服务
  */
 function timeoutCallback() {
-  const oldMessageList = socketTarget.value.messageList;
-  socketTarget.value = useWebsocketChat(
+  // const oldMessageList = socketTarget.value.messageList;
+  socketTarget.value = useWebsocketChat({
+    messageList,
     uid,
-    userStore.userInfo.uuid,
-    false,
+    uuid: userStore.userInfo.uuid,
+    first: false,
     timeoutCallback,
-    play
-  );
+    play,
+  });
   // 同步之前的会话内容
-  socketTarget.value.messageList = oldMessageList;
+  // socketTarget.value.messageList = oldMessageList;
 }
 
 /**
@@ -162,8 +150,7 @@ function onStartCallback() {
 function onStopCallBack(file) {
   clearInterval(timer);
   second.value = 60;
-  loadingMode.value = true;
-  loadingMode.text = "解析中，请耐心等待";
+
   // 转换成base64后，发送到腾讯云服务，获取翻译后的文本
   wx.getFileSystemManager().readFile({
     filePath: file.tempFilePath,
@@ -178,22 +165,20 @@ function onStopCallBack(file) {
         DataLen: file.fileSize,
       })
         .then((result) => {
-          if (result.data.Response.Error) {
-            throw result.data.Response.Error;
-          }
-          if (result.data.Response.Result == "") {
-            throw {
-              Code: "FailedOperation.ErrorRecognize",
-            };
-          }
-          loadingMode.value = false;
-          loadingMode.text = "解析完成";
-          socketTarget.value.inputMessage.value = result.data.Response.Result;
+          // if (result.data.Response.Error) {
+          //   throw result.data.Response.Error;
+          // }
+          // if (result.data.Response.Result == "") {
+          //   throw {
+          //     Code: "FailedOperation.ErrorRecognize",
+          //   };
+          // }
+          socketTarget.value.inputMessage.value = "java";
+          // socketTarget.value.inputMessage.value = result.data.Response.Result;
           // 将解析后的文本 作为message发送到gpt 服务
           socketTarget.value.sendMessage(socketTarget.value.inputMessage.value);
         })
         .catch((err) => {
-          loadingMode.value = false;
           switch (err.Code) {
             case "FailedOperation.ErrorRecognize":
               uni.showToast({
@@ -201,7 +186,7 @@ function onStopCallBack(file) {
                 icon: "none",
               });
           }
-          loadingMode.text = "我听不太清楚";
+          // loadingMode.text = "我听不太清楚";
         });
     },
   });
@@ -215,9 +200,11 @@ function play(message) {
   currentPlayId.value = message.id;
   recordLoading.value = true;
   // 如果之前已经合成过，则直接复用
+
   if (fileMap.get(message.id)) {
     audioContext.src = fileMap.get(message.id);
     audioContext.play();
+    console.log("复用");
   } else {
     //注意 语音合成最多支持1800个英文字符
     if (message.value.length >= 1750) {
@@ -255,10 +242,27 @@ function play(message) {
           filePath,
           data: base64String,
           encoding: "base64",
-          success() {
+          success(e) {
+            console.log("文件保存成功", e);
             fileMap.set(message.id, filePath);
             audioContext.src = filePath;
+            audioContext.messageId = message.id;
             audioContext.play();
+            const timer = setInterval(() => {
+              console.log(12, audioContext.duration);
+              if (audioContext.duration) {
+                clearInterval(timer);
+                for (let i = 0; i < messageList.value.length; i++) {
+                  if (messageList.value[i].id === audioContext.messageId) {
+                    messageList.value[i].duration =
+                      audioContext.duration.toFixed(2);
+                    socketTarget.value.saveMessageListData();
+                    break;
+                  }
+                }
+              }
+            }, 1000);
+
             // 可以使用 filePath 进行后续操作，如播放音频或显示图像等
           },
           fail(error) {

@@ -34,13 +34,19 @@
 	margin-top: 20px;
 	margin-bottom: 20px;
 }
-.mx-10{
+
+.mx-10 {
 	margin-left: 10px;
 	margin-right: 10px;
 }
 
 .p-20 {
 	padding: 20px;
+}
+
+.round {
+	border-radius: 50%;
+	overflow: hidden;
 }
 
 .flex-center {

@@ -23,6 +23,19 @@ export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function throttle(fn, wait) {
+  var pre = Date.now();
+  return function () {
+    var context = this;
+    var args = arguments;
+    var now = Date.now();
+    if (now - pre >= wait) {
+      fn.apply(context, args);
+      pre = Date.now();
+    }
+  };
+}
+
 export function generateUniqueUid(length = 36) {
   const characters =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -51,7 +64,7 @@ export function formatDateTime(time) {
   return formattedDateTime;
 }
 
-export function getTimestampOfNDaysAgo(n=7) {
+export function getTimestampOfNDaysAgo(n = 7) {
   const currentDate = new Date();
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(currentDate.getDate() - n);
