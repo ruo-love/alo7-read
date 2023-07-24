@@ -68,7 +68,7 @@
         src="../../static/images/img_landing_phone@3x.png"
         mode="widthFix"
       ></image>
-      <view class="auth-btn" @click="auth"> 授权登录 </view>
+      <view class="auth-btn" @click="auth"> 学生账号登录 </view>
     </view>
   </view>
 </template>

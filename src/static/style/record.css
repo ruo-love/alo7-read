@@ -24,7 +24,7 @@
 	height: 38px;
 	border-radius: 8px;
 	text-align: center;
-	background: #79bff5;
+	background: #00b26a;
 }
 
 .record-btn-layer button image {
@@ -41,7 +41,7 @@
 /* 提示小弹窗 */
 .prompt-layer {
 	border-radius: 8px;
-	background: #79bff5;
+	background: #00b26a;
 	padding: 8px 16px;
 	box-sizing: border-box;
 	position: absolute;
@@ -53,7 +53,7 @@
 	content: '';
 	display: block;
 	border: 6px solid rgba(200, 198, 198, 0);
-	border-top-color: rgb(121, 191, 245);
+	border-top-color: #00b26a;
 	position: absolute;
 	bottom: -10px;
 	left: 50%;

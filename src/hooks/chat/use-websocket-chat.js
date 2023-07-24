@@ -37,6 +37,7 @@ export default function useWebsocketChat({
   timeoutCallback,
   play,
   level,
+  scrollBottom,
 }) {
   //消息对象数据结构
   const inputMessage = reactive({
@@ -45,15 +46,8 @@ export default function useWebsocketChat({
     id: "",
     duration: 0,
   });
-  // 只缓存近N天的聊天记录
-  // const minTime = getTimestampOfNDaysAgo();
-  // const cacheMessageList = (wx.getStorageSync("messageList") || []).filter(
-  //   (e) => e.createTime >= minTime
-  // );
-  // const messageList = ref(messageList);
+
   const loading = ref(false);
-  const scrollTop = ref(0);
-  let oldScrollTop = 0;
 
   let index = messageList.value.length;
   const hasMessage = computed(() => {
@@ -61,7 +55,8 @@ export default function useWebsocketChat({
   });
 
   //开始连接
-  const token = uni.getStorageSync("accessToken");
+  const token = uni.getStorageSync("auth_info").meta.accessToken || "";
+
   let SocketTask = wx.connectSocket({
     url: `${env.VITE_api_chat_websocket}/freeTalk/${uid}?uuid=${uuid}${
       level ? "&level=" + level : ""
@@ -75,6 +70,7 @@ export default function useWebsocketChat({
   SocketTask.onOpen((e) => {
     SocketTask.currentStatus = "open";
     console.log("😄您已成功接入ALO7_GPT websocket服务,开始解决你的问题", e);
+    console.log("first", SocketTask.currentStatus);
     if (first) {
       scrollBottom();
     }
@@ -98,9 +94,9 @@ export default function useWebsocketChat({
           loading.value = false;
           break;
         case "[DONE]":
-          saveMessageListData();
+          saveMessageListData(messageList.value);
           play(messageList.value[index + 1]);
-          scrollBottomThrottle();
+          scrollBottom();
           break;
         default:
           console.log("😄message error", err);
@@ -139,8 +135,8 @@ export default function useWebsocketChat({
 
   //发送消息
   const sendMessage = debounce(async (content) => {
-    console.log("sendMessage", SocketTask, content);
-    if (SocketTask.currentStatus !== "open") return;
+    console.log("sendMessage", SocketTask.currentStatus);
+    // if (SocketTask.currentStatus !== "open") return;
 
     if (!hasMessage.value) return;
     loading.value = true;
@@ -170,33 +166,12 @@ export default function useWebsocketChat({
     });
   });
 
-  //list滚动
-  function scroll(e) {
-    oldScrollTop = e.detail.scrollTop;
-  }
-
-  function scrollToTop(v) {
-    scrollTop.value = oldScrollTop;
-    nextTick(() => {
-      scrollTop.value = v;
-    });
-  }
-
-  //滚动到聊天列表底部
-  function scrollBottom() {
-    wx.createSelectorQuery()
-      .select("#viewCommunicationBody")
-      .boundingClientRect(function (rect) {
-        scrollToTop(rect.height);
-      })
-      .exec();
-  }
   const scrollBottomThrottle = throttle(scrollBottom, 500);
   //缓存聊天数据
-  function saveMessageListData() {
+  function saveMessageListData(data) {
     try {
-      console.log("messageList", messageList.value);
-      wx.setStorageSync("messageList", messageList.value);
+      console.log("messageList", data);
+      wx.setStorageSync("messageList", data);
     } catch (err) {
       console.log("saveMessageListData error", err);
     }
@@ -207,8 +182,6 @@ export default function useWebsocketChat({
     loading,
     saveMessageListData,
     close,
-    scroll,
-    scrollTop,
     SocketTask,
     hasMessage,
   };

@@ -25,20 +25,24 @@
           <text v-if="duration" class="duration">{{ duration }}</text>
         </view>
         <image
-          class="translate icon-30"
+          @click="$emit('translate', content)"
+          class="translate-btn icon-30"
           src="../../static/images/fanyi.png"
         ></image>
       </view>
       <view class="content">
         {{ content }}
       </view>
+      <view v-if="!self && text.length" class="translate-content">{{
+        text
+      }}</view>
     </view>
   </view>
 </template>
 
 <script>
 export default {
-  emits: ["play"],
+  emits: ["play", "translate"],
   props: {
     self: {
       type: Boolean,
@@ -61,8 +65,12 @@ export default {
       default: false,
     },
     duration: {
-      type: Number,
+      type: [String, Number],
       default: 0,
+    },
+    text: {
+      type: String,
+      default: "",
     },
   },
 
@@ -129,7 +137,7 @@ export default {
       font-size: 12px;
     }
   }
-  .translate {
+  .translate-btn {
   }
 }
 
@@ -141,15 +149,18 @@ export default {
   background-color: rgba($color: #378fff, $alpha: 0.8);
   border-radius: 8px;
 }
-
 .content {
   display: inline-block;
 }
-
 .icon-20 {
   margin-left: 6px;
   width: 20px;
   height: 20px;
   vertical-align: middle;
+}
+.translate-content {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #79bff5;
 }
 </style>

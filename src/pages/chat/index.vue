@@ -2,21 +2,39 @@
   <view class="chat-page">
     <scroll-view
       scroll-y="true"
-      @scroll="socketTarget.scroll"
+      @scroll="scroll"
       class="scroll-Y scroll-view-wrap"
-      :scroll-top="socketTarget.scrollTop"
+      :scroll-top="scrollTop"
     >
       <view id="viewCommunicationBody">
         <a7-message-card
           :recordLoading="currentPlayId === message.id && recordLoading"
           :playing="currentPlayId === message.id && playing"
           @play="play(message)"
+          @translate="translate(message)"
+          v-for="message in historyMessageList"
+          :key="message.id"
+          :self="message.self"
+          :content="message.value"
+          :createTime="message.createTime"
+          :duration="message.duration"
+          :text="message.text"
+        />
+        <view v-if="historyMessageList.length" class="tip-history"
+          >——以上为历史聊天——</view
+        >
+        <a7-message-card
+          :recordLoading="currentPlayId === message.id && recordLoading"
+          :playing="currentPlayId === message.id && playing"
+          @play="play(message)"
+          @translate="translate(message)"
           v-for="message in messageList"
           :key="message.id"
           :self="message.self"
           :content="message.value"
           :createTime="message.createTime"
           :duration="message.duration"
+          :text="message.text"
         />
       </view>
     </scroll-view>
@@ -47,14 +65,16 @@
 <script setup>
 import useRecorder from "../../hooks/record/use-record.js";
 import useWebsocketChat from "../../hooks/chat/use-websocket-chat.js";
-import V3 from "../../hooks/asr/v3.js";
-import { V1 } from "../../hooks/asr/v1.js";
-import asrConfig from "../../hooks/asr/asr.js";
-import ttsConfig from "../../hooks/asr/tts.js";
-import { ref, reactive, computed, onBeforeUnmount } from "vue";
+import V3 from "../../hooks/tencentCloudApi/v3.js";
+import { V1 } from "../../hooks/tencentCloudApi/v1.js";
+import asrConfig from "../../hooks/tencentCloudApi/asr.js";
+import ttsConfig from "../../hooks/tencentCloudApi/tts.js";
+import tmtConfig from "../../hooks/tencentCloudApi/tmt.js";
+import { ref, reactive, computed, onBeforeUnmount, nextTick } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import useUserStore from "../../store/user.js";
-import { getTimestampOfNDaysAgo } from "../../utils/tool.js";
+import { getTimestampOfNDaysAgo, generateUniqueUid } from "../../utils/tool.js";
+
 const userStore = useUserStore();
 let uid = null;
 const socketTarget = ref({});
@@ -65,6 +85,10 @@ const second = ref(60);
 const playing = ref(false);
 const recordLoading = ref(false);
 const messageList = ref([]);
+const historyMessageList = ref([]);
+const scrollTop = ref(0);
+let oldScrollTop = 0;
+
 const left_btn_src = computed(() => {
   return isVoice.value
     ? "https://web-alo7-com.oss-cn-beijing.aliyuncs.com/wx-teacher-app/alo7-read/jp.png"
@@ -77,10 +101,16 @@ const audioContext = wx.createInnerAudioContext();
 audioContext.autoplay = false;
 onLoad((options) => {
   uid = options.uid;
-  const minTime = getTimestampOfNDaysAgo();
-  messageList.value = (wx.getStorageSync("messageList") || []).filter(
-    (e) => e.createTime >= minTime
-  );
+  historyMessageList.value = wx.getStorageSync("messageList") || [];
+  socketTarget.value = useWebsocketChat({
+    messageList,
+    uid: generateUniqueUid(),
+    uuid: userStore.userInfo.uuid,
+    first: true,
+    timeoutCallback,
+    play,
+    scrollBottom,
+  });
 });
 
 onShow(() => {
@@ -90,16 +120,6 @@ onShow(() => {
     socketTarget.value.SocketTask.currentStatus === "interrupted"
   ) {
     timeoutCallback();
-  } else {
-    //第一次进入页面 连接socket
-    socketTarget.value = useWebsocketChat({
-      messageList,
-      uid,
-      uuid: userStore.userInfo.uuid,
-      first: true,
-      timeoutCallback,
-      play,
-    });
   }
 });
 
@@ -117,17 +137,16 @@ audioContext.onEnded((e) => {
  * timeoutCallback用于重新连接socket服务
  */
 function timeoutCallback() {
-  // const oldMessageList = socketTarget.value.messageList;
   socketTarget.value = useWebsocketChat({
     messageList,
-    uid,
+    uid: generateUniqueUid(),
     uuid: userStore.userInfo.uuid,
     first: false,
     timeoutCallback,
     play,
+    scrollBottom,
   });
   // 同步之前的会话内容
-  // socketTarget.value.messageList = oldMessageList;
 }
 
 /**
@@ -197,6 +216,10 @@ function onStopCallBack(file) {
  * @param {*} message
  */
 function play(message) {
+  if (recordLoading.value || playing.value) {
+    audioContext.stop();
+    return;
+  }
   currentPlayId.value = message.id;
   recordLoading.value = true;
   // 如果之前已经合成过，则直接复用
@@ -248,15 +271,14 @@ function play(message) {
             audioContext.src = filePath;
             audioContext.messageId = message.id;
             audioContext.play();
+            const allList = historyMessageList.value.concat(messageList.value);
             const timer = setInterval(() => {
-              console.log(12, audioContext.duration);
               if (audioContext.duration) {
                 clearInterval(timer);
-                for (let i = 0; i < messageList.value.length; i++) {
-                  if (messageList.value[i].id === audioContext.messageId) {
-                    messageList.value[i].duration =
-                      audioContext.duration.toFixed(2);
-                    socketTarget.value.saveMessageListData();
+                for (let i = 0; i < allList.length; i++) {
+                  if (allList[i].id === audioContext.messageId) {
+                    allList[i].duration = audioContext.duration.toFixed(2);
+                    socketTarget.value.saveMessageListData(allList);
                     break;
                   }
                 }
@@ -278,9 +300,67 @@ function play(message) {
 }
 
 /**
+ * 将文本翻译成中文
+ */
+function translate(message) {
+  if (message.text) {
+    return;
+  }
+  wx.showLoading({
+    title: "翻译中...",
+  });
+  tencentCloudApi(tmtConfig.TextTranslate, {
+    SourceText: message.value,
+    Source: "en",
+    Target: "zh",
+    ProjectId: 0,
+  })
+    .then((res) => {
+      wx.hideLoading();
+      message.text = res.data.Response.TargetText;
+      const stack = historyMessageList.value.concat(messageList.value);
+      socketTarget.value.saveMessageListData(stack);
+      scrollBottom();
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+}
+//list滚动
+function scroll(e) {
+  oldScrollTop = e.detail.scrollTop;
+}
+
+function scrollToTop(v) {
+  scrollTop.value = oldScrollTop;
+  nextTick(() => {
+    scrollTop.value = v;
+  });
+}
+
+//滚动到聊天列表底部
+function scrollBottom() {
+  wx.createSelectorQuery()
+    .select("#viewCommunicationBody")
+    .boundingClientRect(function (rect) {
+      scrollToTop(rect.height);
+    })
+    .exec();
+}
+/**
  * 卸载音频和socket
  */
 onBeforeUnmount(() => {
+  const minTime = getTimestampOfNDaysAgo(1);
+  const stack = historyMessageList.value.concat(messageList.value);
+  if (stack.length > 20) {
+    stack = stack.slice(-20);
+  }
+  console.log(stack);
+  socketTarget.value.saveMessageListData(
+    stack.filter((e) => e.createTime >= minTime)
+  );
+
   socketTarget.value.close();
   audioContext.destroy();
 });
@@ -319,4 +399,4 @@ function tencentCloudApi(config, data) {
 @import url(../../static/style/record.css);
 @import url(../../static/style/spinner.css);
 @import url(./index.css);
-</style>../../hooks/record/use-record.js
+</style>../../hooks/record/use-record.js../../hooks/tencentCloudApi/v3.js../../hooks/tencentCloudApi/v1.js../../hooks/tencentCloudApi/asr.js../../hooks/tencentCloudApi/tts.js

@@ -8,6 +8,13 @@
 			}
 		},
 		{
+			"path": "pages/wx-login/index",
+			"style": {
+				"navigationBarTitleText": "",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/select-grade/index",
 			"style": {
 				"navigationBarTitleText": ""
@@ -45,7 +52,7 @@
 		"autoscan": true,
 		"custom": {
 			"a7-(.*)": "@/components/a7-$1/index.vue",
-			"^u-(.*)": "uview-plus/components/u-$1/u-$1.vue" 
+			"^u-(.*)": "uview-plus/components/u-$1/u-$1.vue"
 		}
 	}
 }
