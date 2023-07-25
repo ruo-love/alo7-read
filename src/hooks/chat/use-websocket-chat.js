@@ -70,7 +70,7 @@ export default function useWebsocketChat({
   SocketTask.onOpen((e) => {
     SocketTask.currentStatus = "open";
     console.log("😄您已成功接入ALO7_GPT websocket服务,开始解决你的问题", e);
-    console.log("first", SocketTask.currentStatus);
+    console.log("first", SocketTask);
     if (first) {
       scrollBottom();
     }

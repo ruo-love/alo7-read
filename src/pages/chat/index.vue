@@ -46,11 +46,11 @@
         <text class="p">{{ "剩余：" + second + "s" }}</text>
         <text class="span">松手结束录音</text>
       </view>
-      <view class="message-wrap">
+      <view class="message-wrap" :style="{ paddingBottom: safeBottom + 'px' }">
         <view
-          class="voice-wrap right-wrap flex-center"
+          class="voice-wrap flex-center"
           :class="{ recording: recording }"
-          @touchstart="start"
+          @longtap="start"
           @touchend="stop"
           @touchcancel="stop"
         >
@@ -74,14 +74,16 @@ import { ref, reactive, computed, onBeforeUnmount, nextTick } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import useUserStore from "../../store/user.js";
 import { getTimestampOfNDaysAgo, generateUniqueUid } from "../../utils/tool.js";
-
+import useSystemStore from "../../store/system.js";
+const { safeBottom } = useSystemStore();
 const userStore = useUserStore();
 let uid = null;
+let level = "";
 const socketTarget = ref({});
 const fileMap = new Map();
 const { start, stop, recording } = useRecorder(onStartCallback, onStopCallBack);
 const isVoice = ref(true);
-const second = ref(60);
+const second = ref(20);
 const playing = ref(false);
 const recordLoading = ref(false);
 const messageList = ref([]);
@@ -101,15 +103,17 @@ const audioContext = wx.createInnerAudioContext();
 audioContext.autoplay = false;
 onLoad((options) => {
   uid = options.uid;
+  level = options.level;
   historyMessageList.value = wx.getStorageSync("messageList") || [];
   socketTarget.value = useWebsocketChat({
     messageList,
-    uid: generateUniqueUid(),
+    uid,
     uuid: userStore.userInfo.uuid,
     first: true,
     timeoutCallback,
     play,
     scrollBottom,
+    level,
   });
 });
 
@@ -139,12 +143,13 @@ audioContext.onEnded((e) => {
 function timeoutCallback() {
   socketTarget.value = useWebsocketChat({
     messageList,
-    uid: generateUniqueUid(),
+    uid,
     uuid: userStore.userInfo.uuid,
     first: false,
     timeoutCallback,
     play,
     scrollBottom,
+    level,
   });
   // 同步之前的会话内容
 }
@@ -153,11 +158,14 @@ function timeoutCallback() {
  * 开始录音回调
  */
 function onStartCallback() {
+  console.log("开始录音");
+  clearInterval(timer);
+  second.value = 20;
   timer = setInterval(() => {
     second.value -= 1;
     if (second.value <= 0) {
       clearInterval(timer);
-      second.value = 60;
+      second.value = 20;
     }
   }, 1000);
 }
@@ -167,48 +175,57 @@ function onStartCallback() {
  * @param {*} file
  */
 function onStopCallBack(file) {
-  clearInterval(timer);
-  second.value = 60;
+  if (file.duration < 1000) {
+    uni.showToast({
+      title: "对话太短",
+      icon: "none",
+    });
+  } else {
+    clearInterval(timer);
+    second.value = 20;
 
-  // 转换成base64后，发送到腾讯云服务，获取翻译后的文本
-  wx.getFileSystemManager().readFile({
-    filePath: file.tempFilePath,
-    encoding: "base64", //编码格式
-    success: (res) => {
-      //成功的回调
-      tencentCloudApi(asrConfig["SentenceRecognition"], {
-        EngSerViceType: "16k_en",
-        SourceType: 1,
-        VoiceFormat: "mp3",
-        Data: res.data,
-        DataLen: file.fileSize,
-      })
-        .then((result) => {
-          // if (result.data.Response.Error) {
-          //   throw result.data.Response.Error;
-          // }
-          // if (result.data.Response.Result == "") {
-          //   throw {
-          //     Code: "FailedOperation.ErrorRecognize",
-          //   };
-          // }
-          socketTarget.value.inputMessage.value = "java";
-          // socketTarget.value.inputMessage.value = result.data.Response.Result;
-          // 将解析后的文本 作为message发送到gpt 服务
-          socketTarget.value.sendMessage(socketTarget.value.inputMessage.value);
+    // 转换成base64后，发送到腾讯云服务，获取翻译后的文本
+    wx.getFileSystemManager().readFile({
+      filePath: file.tempFilePath,
+      encoding: "base64", //编码格式
+      success: (res) => {
+        //成功的回调
+        tencentCloudApi(asrConfig["SentenceRecognition"], {
+          EngSerViceType: "16k_en",
+          SourceType: 1,
+          VoiceFormat: "mp3",
+          Data: res.data,
+          DataLen: file.fileSize,
         })
-        .catch((err) => {
-          switch (err.Code) {
-            case "FailedOperation.ErrorRecognize":
-              uni.showToast({
-                title: "抱歉，我听不太清楚，请声音大一点",
-                icon: "none",
-              });
-          }
-          // loadingMode.text = "我听不太清楚";
-        });
-    },
-  });
+          .then((result) => {
+            if (result.data.Response.Error) {
+              throw result.data.Response.Error;
+            }
+            if (result.data.Response.Result == "") {
+              throw {
+                Code: "FailedOperation.ErrorRecognize",
+              };
+            }
+            // socketTarget.value.inputMessage.value = "hello,world";
+            socketTarget.value.inputMessage.value = result.data.Response.Result;
+            // 将解析后的文本 作为message发送到gpt 服务
+            socketTarget.value.sendMessage(
+              socketTarget.value.inputMessage.value
+            );
+          })
+          .catch((err) => {
+            switch (err.Code) {
+              case "FailedOperation.ErrorRecognize":
+                uni.showToast({
+                  title: "抱歉，我听不太清楚，请声音大一点",
+                  icon: "none",
+                });
+            }
+            // loadingMode.text = "我听不太清楚";
+          });
+      },
+    });
+  }
 }
 
 /**
@@ -227,7 +244,6 @@ function play(message) {
   if (fileMap.get(message.id)) {
     audioContext.src = fileMap.get(message.id);
     audioContext.play();
-    console.log("复用");
   } else {
     //注意 语音合成最多支持1800个英文字符
     if (message.value.length >= 1750) {
@@ -236,66 +252,67 @@ function play(message) {
         icon: "none",
       });
       recordLoading.value = false;
-      return;
-    }
-    const { Signature, params } = V1(ttsConfig.TextToStreamAudio, {
-      Text: message.value,
-      SessionId: message.id,
-      VoiceType: 1051,
-    });
-    wx.request({
-      method: "POST",
-      url: "https://tts.cloud.tencent.com/stream",
-      header: {
-        "Content-Type": "application/json",
-        Authorization: Signature,
-      },
-      responseType: "arraybuffer", // 设置响应类型为 arraybuffer
-      data: params,
-      success(res) {
-        // 获取到响应的二进制数据
-        const arrayBuffer = res.data;
+    } else {
+      const { Signature, params } = V1(ttsConfig.TextToStreamAudio, {
+        Text: message.value,
+        SessionId: message.id,
+        VoiceType: 1051,
+      });
+      wx.request({
+        method: "POST",
+        url: "https://tts.cloud.tencent.com/stream",
+        header: {
+          "Content-Type": "application/json",
+          Authorization: Signature,
+        },
+        responseType: "arraybuffer", // 设置响应类型为 arraybuffer
+        data: params,
+        success(res) {
+          // 获取到响应的二进制数据
+          const arrayBuffer = res.data;
 
-        // 将 arrayBuffer 转为 base64 字符串
-        const base64String = wx.arrayBufferToBase64(arrayBuffer);
+          // 将 arrayBuffer 转为 base64 字符串
+          const base64String = wx.arrayBufferToBase64(arrayBuffer);
 
-        // 将 base64 字符串转为文件
-        const filePath = `${wx.env.USER_DATA_PATH}/${message.id}.mp3`;
-        wx.getFileSystemManager().writeFile({
-          filePath,
-          data: base64String,
-          encoding: "base64",
-          success(e) {
-            console.log("文件保存成功", e);
-            fileMap.set(message.id, filePath);
-            audioContext.src = filePath;
-            audioContext.messageId = message.id;
-            audioContext.play();
-            const allList = historyMessageList.value.concat(messageList.value);
-            const timer = setInterval(() => {
-              if (audioContext.duration) {
-                clearInterval(timer);
-                for (let i = 0; i < allList.length; i++) {
-                  if (allList[i].id === audioContext.messageId) {
-                    allList[i].duration = audioContext.duration.toFixed(2);
-                    socketTarget.value.saveMessageListData(allList);
-                    break;
+          // 将 base64 字符串转为文件
+          const filePath = `${wx.env.USER_DATA_PATH}/${message.id}.mp3`;
+          wx.getFileSystemManager().writeFile({
+            filePath,
+            data: base64String,
+            encoding: "base64",
+            success(e) {
+              fileMap.set(message.id, filePath);
+              audioContext.src = filePath;
+              audioContext.messageId = message.id;
+              audioContext.play();
+              const allList = historyMessageList.value.concat(
+                messageList.value
+              );
+              const timer = setInterval(() => {
+                if (audioContext.duration) {
+                  clearInterval(timer);
+                  for (let i = 0; i < allList.length; i++) {
+                    if (allList[i].id === audioContext.messageId) {
+                      allList[i].duration = audioContext.duration.toFixed(2);
+                      socketTarget.value.saveMessageListData(allList);
+                      break;
+                    }
                   }
                 }
-              }
-            }, 1000);
+              }, 1000);
 
-            // 可以使用 filePath 进行后续操作，如播放音频或显示图像等
-          },
-          fail(error) {
-            console.error("文件保存失败", error);
-          },
-        });
-      },
-      fail(error) {
-        console.error("网络请求失败", error);
-      },
-    });
+              // 可以使用 filePath 进行后续操作，如播放音频或显示图像等
+            },
+            fail(error) {
+              console.error("文件保存失败", error);
+            },
+          });
+        },
+        fail(error) {
+          console.error("网络请求失败", error);
+        },
+      });
+    }
   }
 }
 
@@ -352,7 +369,7 @@ function scrollBottom() {
  */
 onBeforeUnmount(() => {
   const minTime = getTimestampOfNDaysAgo(1);
-  const stack = historyMessageList.value.concat(messageList.value);
+  let stack = historyMessageList.value.concat(messageList.value);
   if (stack.length > 20) {
     stack = stack.slice(-20);
   }

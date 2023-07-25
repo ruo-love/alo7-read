@@ -26,29 +26,36 @@
 
 .scroll-Y {
   box-sizing: border-box;
-  padding: 10px 16px;
+  padding: 0px 16px;
 
   flex: 1;
   overflow-y: scroll;
 
 }
 
+#viewCommunicationBody {
+  padding-bottom: 10px;
+}
+
 .left-btn {
   padding: 16px;
 }
 
-.right-wrap {
-  flex: 1;
-}
+
 
 
 .voice-wrap {
   padding: 16px;
   display: flex;
+  flex: 1;
   align-items: center;
   height: 40px;
 }
 
+.icon-voice:active {
+  opacity: 0.8;
+  scale: 1.05;
+}
 
 
 .voice-btn {
@@ -58,7 +65,7 @@
   border-radius: 8px;
 }
 
-.tip-history{
+.tip-history {
   text-align: center;
   font-size: 12px;
   color: #999;

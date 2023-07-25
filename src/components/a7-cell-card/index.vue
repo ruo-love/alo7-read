@@ -32,7 +32,7 @@
         <text class="content">{{ content }}</text>
       </slot>
       <slot name="right_icon">
-        <image v-if="!hide_right_icon" class="right_icon" :src="right_icon_src"></image>
+        <image v-if="!hide_right_icon" class="right_icon" :src="right_icon_src" :style="rightIconSize"></image>
       </slot>
     </view>
   </view>
@@ -126,6 +126,11 @@ export default {
       type: Number,
       default: 36
     },
+    right_icon_size: {
+      //左侧icon 大小  单位px
+      type: Number,
+      default: 16
+    },
     show_bottom_line: {
       //是否显示底部线条
       type: Boolean,
@@ -138,10 +143,13 @@ export default {
   },
   computed: {
     leftIconSize() {
-      return `width:${this.toRpx(this.left_icon_size)}rpx;height:${this.toRpx(this.left_icon_size)}rpx;`;
+      return `width:${this.left_icon_size}px;height:${this.left_icon_size}px;`;
+    },
+    rightIconSize() {
+      return `width:${this.right_icon_size}px;height:${this.right_icon_size}px;`;
     },
     fineshedIconSize() {
-      return `width:${this.toRpx(this.fineshed_icon_size)}rpx;height:${this.toRpx(this.fineshed_icon_size)}rpx;`;
+      return `width:${this.fineshed_icon_size}px;height:${this.fineshed_icon_size}px;`;
     },
     cellStyle() {
       const common = `padding:${this.padding};background-color: ${this.cell_color};margin:${this.margin};`;
@@ -151,9 +159,6 @@ export default {
   methods: {
     handleClick(e) {
       this.$emit('tapCell', e);
-    },
-    toRpx(v) {
-      return (750 / this.design_width) * v;
     }
   }
 };

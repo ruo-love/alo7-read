@@ -17,23 +17,36 @@
       </view>
     </view>
     <view class="content-wrap">
-      <view class="grade-card card">
-        <image
-          src="../../static/images/portrait_boy@3x.png"
-          mode="scaleToFill"
-          class="icon-72 circle"
-        />
-        <view class="desc-wrap">
-          <view>姓名:Ola</view>
+      <view class="category-wrap my-20">
+        <scroll-view
+          scroll-with-animation
+          enable-flex
+          class="scroll-view-container"
+          :scroll-left="scrollLeft"
+          :scroll-x="true"
+        >
           <view
-            >人物介绍：我会apple、banana、orange等词语，还会各种语法、短句</view
+            v-for="(category, i) in currentTabData"
+            :key="i"
+            class="a7-scroll-tabs-item mx-10"
+            @click="selectCategory(i)"
           >
-        </view>
+            <view
+              class="category-item"
+              :class="{ active: i == curentCategory }"
+            >
+              <img src="../../static/images/portrait_boy@3x.png" class="icon" />
+              <view class="category-name">{{ category.name }}</view>
+            </view>
+          </view>
+        </scroll-view>
       </view>
+      <view class="title"> GE1级别 </view>
+      <view class="title"> GE1级别 简单单词 </view>
     </view>
-    <view class="text-center mt-20">
-      <view class="btn" @click="enterChatRoom">开始对话</view>
-    </view>
+    <view class="text-center mt-20"
+      ><view class="btn" @click="enterChatRoom">开始对话</view></view
+    >
   </view>
 </template>
 <script setup>
@@ -43,15 +56,15 @@ import { generateUniqueUid } from "../../utils/tool";
 const tabList = ref([
   {
     name: "入门",
-    value: "1",
+    value: "A",
   },
   {
     name: "初级",
-    value: "2",
+    value: "B",
   },
   {
     name: "高级",
-    value: "3",
+    value: "C",
   },
 ]);
 const tabStyle = reactive({
@@ -171,7 +184,7 @@ function selectCategory(index) {
 }
 function enterChatRoom() {
   uni.navigateTo({
-    url: "/pages/chat/index?uid=" + generateUniqueUid()+'&level='+tabList.value[currentTab.value].value,
+    url: "/pages/chat/index?uid=" + generateUniqueUid(),
   });
 }
 </script>
@@ -197,17 +210,51 @@ function enterChatRoom() {
     }
   }
   .content-wrap {
-    padding: 0 40px;
-    display: flex;
-    justify-content: center;
-    .grade-card {
+    height: 300px;
+  }
+}
+
+.category-wrap {
+  text-align: center;
+  .scroll-view-container {
+    margin-left: -12px;
+    white-space: nowrap;
+    .a7-scroll-tabs-item {
+      display: inline-block;
+      width: 96px;
+      height: 96px;
+      line-height: 96px;
+
+      .active {
+        .category-name {
+          font-size: 16px;
+        }
+        .icon {
+          width: 72px;
+          height: 72px;
+        }
+      }
+    }
+    .category-item {
+      height: 100%;
       display: flex;
-      padding: 10px;
-      width: 280px;
-      height: 200px;
-      .desc-wrap {
-        padding: 10px 16px;
-        flex: 1;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      .icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+
+        transition: all 0.3s ease-in-out;
+      }
+      .category-name {
+        width: 100%;
+        height: 30px;
+        font-size: 12px;
+        line-height: 30px;
+        vertical-align: baseline;
+        transition: all 0.3s ease-in-out;
       }
     }
   }

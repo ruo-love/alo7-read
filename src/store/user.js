@@ -54,11 +54,8 @@ export default defineStore("user", {
       }
     },
     logout() {
-      this.accessToken = null;
-      this.mobilePhone = null;
-      this.userInfo;
-      uni.removeStorageSync("accessToken");
-      uni.removeStorageSync("mobilePhone");
+      this.auth_info = {};
+      uni.removeStorageSync("auth_info");
       uni.navigateTo({
         url: "/pages/login/index",
       });

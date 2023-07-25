@@ -9,10 +9,12 @@
       <a7-cell-card
         left_icon_size="56"
         left_icon_src="../../static/images/portrait_boy@3x.png"
+        right_icon_size="32"
+        right_icon_src="../../static/images/settings.png"
         padding="0"
         margin="0 0 40px"
         circle
-        hide_right_icon
+        @tapCell="navigateTo('/pages/user/index')"
       >
         <template #title>
           <view class="title ml-20">{{ userInfo.chineseName }}</view>
